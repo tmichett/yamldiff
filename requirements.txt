@@ -1,0 +1,3 @@
+customtkinter
+PyYAML
+deepdiff
