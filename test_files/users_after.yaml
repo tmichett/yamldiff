@@ -1,0 +1,46 @@
+# User Database - After Changes
+users:
+  - id: 1
+    username: "alice"
+    email: "alice@newdomain.com"  # Email changed
+    role: "superadmin"  # Role upgraded
+    active: true
+    permissions:
+      - read
+      - write
+      - delete
+      - admin  # New permission
+    
+  - id: 2
+    username: "bob"
+    email: "bob@example.com"
+    role: "moderator"  # Role changed
+    active: true
+    permissions:
+      - read
+      - write
+      - moderate  # New permission
+    
+  # Charlie removed
+  
+  - id: 4  # New user added
+    username: "diana"
+    email: "diana@example.com"
+    role: "user"
+    active: true
+    permissions:
+      - read
+
+groups:
+  admins:
+    description: "System administrators"
+    members: [1]
+  
+  moderators:  # New group
+    description: "Content moderators"
+    members: [2]
+  
+  users:
+    description: "Regular users"
+    members: [4]  # Charlie replaced with Diana
+

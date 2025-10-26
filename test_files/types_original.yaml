@@ -1,0 +1,15 @@
+# Type Testing - Original
+configuration:
+  port: 8080  # Integer
+  host: "localhost"  # String
+  enabled: true  # Boolean
+  timeout: 30.5  # Float
+  tags:  # Array
+    - web
+    - api
+  metadata:  # Object
+    author: "DevTeam"
+    created: "2024-01-01"
+  workers: 4  # Integer
+  rate_limit: 100  # Integer
+

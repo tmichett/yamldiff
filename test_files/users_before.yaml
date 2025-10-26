@@ -1,0 +1,38 @@
+# User Database - Before Changes
+users:
+  - id: 1
+    username: "alice"
+    email: "alice@example.com"
+    role: "admin"
+    active: true
+    permissions:
+      - read
+      - write
+      - delete
+    
+  - id: 2
+    username: "bob"
+    email: "bob@example.com"
+    role: "user"
+    active: true
+    permissions:
+      - read
+      - write
+    
+  - id: 3
+    username: "charlie"
+    email: "charlie@example.com"
+    role: "user"
+    active: false
+    permissions:
+      - read
+
+groups:
+  admins:
+    description: "System administrators"
+    members: [1]
+  
+  users:
+    description: "Regular users"
+    members: [2, 3]
+

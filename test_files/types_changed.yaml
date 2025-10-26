@@ -1,0 +1,11 @@
+# Type Testing - Types Changed
+configuration:
+  port: "8080"  # Changed to String
+  host: "localhost"  # String (unchanged)
+  enabled: "yes"  # Changed to String
+  timeout: 30  # Changed to Integer
+  tags: "web,api"  # Changed to String (was array)
+  metadata: "author=DevTeam,created=2024-01-01"  # Changed to String (was object)
+  workers: "4"  # Changed to String
+  rate_limit: 100.0  # Changed to Float
+

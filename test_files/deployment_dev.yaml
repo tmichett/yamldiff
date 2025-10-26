@@ -1,0 +1,48 @@
+# Deployment Configuration - Development
+apiVersion: v1
+kind: Deployment
+
+metadata:
+  name: myapp-deployment
+  namespace: development
+  labels:
+    app: myapp
+    env: dev
+
+spec:
+  replicas: 1
+  
+  selector:
+    matchLabels:
+      app: myapp
+  
+  template:
+    metadata:
+      labels:
+        app: myapp
+        env: dev
+    
+    spec:
+      containers:
+        - name: myapp
+          image: "myapp:latest"
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ENVIRONMENT
+              value: "development"
+            - name: LOG_LEVEL
+              value: "DEBUG"
+            - name: DATABASE_HOST
+              value: "localhost"
+          
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      
+      restartPolicy: Always
+

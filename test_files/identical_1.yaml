@@ -1,0 +1,17 @@
+# Identical File Test
+simple:
+  key1: "value1"
+  key2: "value2"
+  key3: 123
+
+nested:
+  level1:
+    level2:
+      data: "test"
+      count: 42
+  
+list_data:
+  - item1
+  - item2
+  - item3
+

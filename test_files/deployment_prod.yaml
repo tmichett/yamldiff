@@ -1,0 +1,66 @@
+# Deployment Configuration - Production
+apiVersion: v1
+kind: Deployment
+
+metadata:
+  name: myapp-deployment
+  namespace: production
+  labels:
+    app: myapp
+    env: prod
+  annotations:
+    deployment.kubernetes.io/revision: "5"
+
+spec:
+  replicas: 3  # Scaled up for production
+  
+  selector:
+    matchLabels:
+      app: myapp
+  
+  template:
+    metadata:
+      labels:
+        app: myapp
+        env: prod
+    
+    spec:
+      containers:
+        - name: myapp
+          image: "myapp:1.2.3"  # Specific version for prod
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: LOG_LEVEL
+              value: "INFO"  # Less verbose logging
+            - name: DATABASE_HOST
+              value: "db.prod.example.com"  # Production database
+            - name: CACHE_ENABLED  # Additional env var
+              value: "true"
+          
+          resources:
+            requests:
+              memory: "512Mi"  # More resources
+              cpu: "500m"
+            limits:
+              memory: "2Gi"  # Higher limits
+              cpu: "2000m"
+          
+          livenessProbe:  # Added health checks
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      
+      restartPolicy: Always
+

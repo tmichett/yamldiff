@@ -1,0 +1,38 @@
+# Application Configuration - Version 2
+app:
+  name: "MyApp"
+  version: "1.1.0"  # Updated version
+  environment: "staging"  # Changed from production
+  region: "us-east-1"  # New field added
+  
+database:
+  host: "db.example.com"  # Changed hostname
+  port: 5432
+  username: "admin"
+  password: "newpassword456"  # Updated password
+  database_name: "myapp_db"
+  ssl_enabled: true  # New field
+  
+features:
+  - authentication
+  - logging
+  - caching
+  - monitoring  # New feature added
+  
+settings:
+  timeout: 60  # Increased timeout
+  retry_attempts: 5  # Increased retries
+  debug_mode: true  # Enabled debug mode
+  max_connections: 100  # New setting
+  
+servers:
+  web:
+    host: "0.0.0.0"
+    port: 8080
+  api:
+    host: "0.0.0.0"
+    port: 8082  # Changed port
+  admin:  # New server added
+    host: "127.0.0.1"
+    port: 9000
+

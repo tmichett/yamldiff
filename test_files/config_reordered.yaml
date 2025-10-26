@@ -1,0 +1,31 @@
+# Application Configuration - Same as v1 but different order
+settings:
+  debug_mode: false
+  retry_attempts: 3
+  timeout: 30
+  
+app:
+  environment: "production"
+  version: "1.0.0"
+  name: "MyApp"
+  
+servers:
+  api:
+    port: 8081
+    host: "0.0.0.0"
+  web:
+    port: 8080
+    host: "0.0.0.0"
+
+database:
+  password: "secret123"
+  username: "admin"
+  database_name: "myapp_db"
+  port: 5432
+  host: "localhost"
+  
+features:
+  - caching
+  - logging
+  - authentication
+
