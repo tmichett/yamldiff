@@ -61,6 +61,9 @@ class YamlDiffApp(ctk.CTk):
 
         self.compare_btn = ctk.CTkButton(self.control_frame, text="Compare", command=self.perform_diff, font=("", 14, "bold"))
         self.compare_btn.grid(row=0, column=2, padx=10, pady=10, sticky="e")
+        
+        self.normalize_btn = ctk.CTkButton(self.control_frame, text="Normalize & Compare", command=self.normalize_and_compare, font=("", 12))
+        self.normalize_btn.grid(row=0, column=3, padx=10, pady=10, sticky="e")
 
         # --- 3. Diff Display Frame (Side-by-Side) ---
         self.diff_frame = ctk.CTkFrame(self)
@@ -196,49 +199,43 @@ class YamlDiffApp(ctk.CTk):
                     right_line_num += 1
                     
             elif opcode == 'replace':
-                # Lines in this block differ - be smart about changed vs added/removed
+                # Lines in this block differ - show side-by-side with appropriate coloring
                 left_lines = lines1[i1:i2]
                 right_lines = lines2[j1:j2]
                 left_count = len(left_lines)
                 right_count = len(right_lines)
+                max_count = max(left_count, right_count)
                 
-                # If equal counts and lines are similar, mark as changed
-                # Otherwise, mark left as removed and right as added
-                if left_count == right_count:
-                    # Same number of lines - check if they're modifications or completely different
-                    for k in range(left_count):
+                # Always show side-by-side, pad with empty lines as needed
+                for k in range(max_count):
+                    if k < left_count and k < right_count:
+                        # Both sides have content - check similarity
                         left_line = left_lines[k]
                         right_line = right_lines[k]
-                        
-                        # Check similarity - if they share some common structure, it's a change
-                        # Otherwise treat as remove + add
                         similarity = difflib.SequenceMatcher(None, left_line, right_line).ratio()
                         
-                        if similarity > 0.3:  # 30% similar -> it's a modification
-                            left_text = f"{left_line_num:4d} | {left_line}\n"
-                            right_text = f"{right_line_num:4d} | {right_line}\n"
+                        left_text = f"{left_line_num:4d} | {left_line}\n"
+                        right_text = f"{right_line_num:4d} | {right_line}\n"
+                        
+                        if similarity > 0.3:  # Similar enough to be a modification
                             self.left_box.insert("end", left_text, "changed")
                             self.right_box.insert("end", right_text, "changed")
-                        else:  # Too different -> treat as remove + add
-                            left_text = f"{left_line_num:4d} | {left_line}\n"
+                        else:  # Too different - one removed, one added
                             self.left_box.insert("end", left_text, "removed")
-                            self.right_box.insert("end", "     | \n", "empty")
-                            
-                            self.left_box.insert("end", "     | \n", "empty")
-                            right_text = f"{right_line_num:4d} | {right_line}\n"
                             self.right_box.insert("end", right_text, "added")
                         
                         left_line_num += 1
                         right_line_num += 1
-                else:
-                    # Different counts - treat as removes + adds
-                    for k in range(left_count):
+                        
+                    elif k < left_count:
+                        # Only left has content - removed
                         left_text = f"{left_line_num:4d} | {left_lines[k]}\n"
                         self.left_box.insert("end", left_text, "removed")
                         self.right_box.insert("end", "     | \n", "empty")
                         left_line_num += 1
-                    
-                    for k in range(right_count):
+                        
+                    else:
+                        # Only right has content - added
                         self.left_box.insert("end", "     | \n", "empty")
                         right_text = f"{right_line_num:4d} | {right_lines[k]}\n"
                         self.right_box.insert("end", right_text, "added")
@@ -267,103 +264,229 @@ class YamlDiffApp(ctk.CTk):
             self.right_box.insert("end", summary, "added")
 
     def show_semantic_diff(self, content1, content2):
-        """Shows files side-by-side with semantic comparison (order-agnostic)."""
+        """Shows files side-by-side with semantic differences highlighted (order-agnostic)."""
         data1 = yaml.safe_load(content1)
         data2 = yaml.safe_load(content2)
 
         # DeepDiff with order ignored
         ddiff = DeepDiff(data1, data2, ignore_order=True, verbose_level=2)
 
-        if not ddiff:
-            # Files are semantically identical - show them side by side normally
-            msg = "=== Files are SEMANTICALLY IDENTICAL (order ignored) ===\n\n"
-            self.left_box.insert("end", msg, "added")
-            self.right_box.insert("end", msg, "added")
-            
-            # Show the actual YAML content side by side
-            lines1 = content1.splitlines()
-            lines2 = content2.splitlines()
-            
-            max_lines = max(len(lines1), len(lines2))
-            for i in range(max_lines):
-                if i < len(lines1):
-                    left_text = f"{i+1:4d} | {lines1[i]}\n"
-                    self.left_box.insert("end", left_text, "normal")
-                else:
-                    self.left_box.insert("end", "     | \n", "empty")
-                
-                if i < len(lines2):
-                    right_text = f"{i+1:4d} | {lines2[i]}\n"
-                    self.right_box.insert("end", right_text, "normal")
-                else:
-                    self.right_box.insert("end", "     | \n", "empty")
-            return
-        
-        # Files have semantic differences - show summary
-        header = "=== SEMANTIC DIFFERENCES FOUND (order ignored) ===\n\n"
-        self.left_box.insert("end", header, "header")
-        self.right_box.insert("end", header, "header")
-        
-        # Build a readable summary
-        summary_lines = []
+        # Extract paths that have semantic differences
+        changed_paths = set()
         
         if 'dictionary_item_added' in ddiff:
-            summary_lines.append("📗 ADDED KEYS:\n")
             for path in ddiff['dictionary_item_added']:
-                summary_lines.append(f"  + {path}\n")
-            summary_lines.append("\n")
+                changed_paths.add(self._extract_key_from_path(path))
         
         if 'dictionary_item_removed' in ddiff:
-            summary_lines.append("📕 REMOVED KEYS:\n")
             for path in ddiff['dictionary_item_removed']:
-                summary_lines.append(f"  - {path}\n")
-            summary_lines.append("\n")
+                changed_paths.add(self._extract_key_from_path(path))
         
         if 'values_changed' in ddiff:
-            summary_lines.append("📘 CHANGED VALUES:\n")
-            for path, change in ddiff['values_changed'].items():
-                old_val = change.get('old_value', 'N/A')
-                new_val = change.get('new_value', 'N/A')
-                summary_lines.append(f"  {path}\n")
-                summary_lines.append(f"    OLD: {old_val}\n")
-                summary_lines.append(f"    NEW: {new_val}\n")
-            summary_lines.append("\n")
+            for path in ddiff['values_changed']:
+                changed_paths.add(self._extract_key_from_path(path))
         
         if 'type_changes' in ddiff:
-            summary_lines.append("📙 TYPE CHANGES:\n")
-            for path, change in ddiff['type_changes'].items():
-                old_type = change.get('old_type', 'N/A')
-                new_type = change.get('new_type', 'N/A')
-                summary_lines.append(f"  {path}\n")
-                summary_lines.append(f"    OLD TYPE: {old_type}\n")
-                summary_lines.append(f"    NEW TYPE: {new_type}\n")
-            summary_lines.append("\n")
+            for path in ddiff['type_changes']:
+                changed_paths.add(self._extract_key_from_path(path))
         
         if 'iterable_item_added' in ddiff:
-            summary_lines.append("📗 ADDED LIST ITEMS:\n")
-            for path, value in ddiff['iterable_item_added'].items():
-                summary_lines.append(f"  {path} = {value}\n")
-            summary_lines.append("\n")
+            for path in ddiff['iterable_item_added']:
+                changed_paths.add(self._extract_key_from_path(path))
         
         if 'iterable_item_removed' in ddiff:
-            summary_lines.append("📕 REMOVED LIST ITEMS:\n")
-            for path, value in ddiff['iterable_item_removed'].items():
-                summary_lines.append(f"  {path} = {value}\n")
-            summary_lines.append("\n")
+            for path in ddiff['iterable_item_removed']:
+                changed_paths.add(self._extract_key_from_path(path))
         
-        # Color code the summary
-        for line in summary_lines:
-            if line.startswith('📗') or line.startswith('  +'):
-                tag = "added"
-            elif line.startswith('📕') or line.startswith('  -'):
-                tag = "removed"
-            elif line.startswith('📘') or line.startswith('📙') or 'OLD:' in line or 'NEW:' in line:
-                tag = "changed"
+        # Show header
+        if not ddiff:
+            msg = "✅ Files are SEMANTICALLY IDENTICAL (keys/values match, order ignored)\n\n"
+            self.left_box.insert("end", msg, "added")
+            self.right_box.insert("end", msg, "added")
+        else:
+            msg = f"⚠️  Found {len(changed_paths)} semantic difference(s) (order ignored)\n\n"
+            self.left_box.insert("end", msg, "changed")
+            self.right_box.insert("end", msg, "changed")
+        
+        # Show the actual YAML content side by side with highlighting
+        lines1 = content1.splitlines()
+        lines2 = content2.splitlines()
+        
+        max_lines = max(len(lines1), len(lines2))
+        for i in range(max_lines):
+            # Determine if this line has a semantic change
+            has_change = False
+            if i < len(lines1):
+                line1 = lines1[i]
+                # Check if any changed path appears in this line
+                for path in changed_paths:
+                    if path and path in line1:
+                        has_change = True
+                        break
+                
+                left_text = f"{i+1:4d} | {line1}\n"
+                tag = "changed" if (has_change and ddiff) else "normal"
+                self.left_box.insert("end", left_text, tag)
             else:
-                tag = "normal"
+                self.left_box.insert("end", "     | \n", "empty")
             
-            self.left_box.insert("end", line, tag)
-            self.right_box.insert("end", line, tag)
+            has_change = False
+            if i < len(lines2):
+                line2 = lines2[i]
+                # Check if any changed path appears in this line
+                for path in changed_paths:
+                    if path and path in line2:
+                        has_change = True
+                        break
+                
+                right_text = f"{i+1:4d} | {line2}\n"
+                tag = "changed" if (has_change and ddiff) else "normal"
+                self.right_box.insert("end", right_text, tag)
+            else:
+                self.right_box.insert("end", "     | \n", "empty")
+    
+    def _extract_key_from_path(self, path):
+        """Extract the key name from a DeepDiff path like root['key']['subkey']."""
+        import re
+        # Extract all keys from the path
+        keys = re.findall(r"\['([^']+)'\]", str(path))
+        # Return the last (most specific) key
+        return keys[-1] if keys else ""
+    
+    def _normalize_data(self, data):
+        """Recursively normalize data: sort dict keys AND list items."""
+        if isinstance(data, dict):
+            # Sort dictionary by keys and recursively normalize values
+            return {k: self._normalize_data(v) for k, v in sorted(data.items())}
+        elif isinstance(data, list):
+            # Sort list items (convert to string for comparison) and recursively normalize
+            normalized_items = [self._normalize_data(item) for item in data]
+            # Sort, handling both simple types and complex types
+            try:
+                return sorted(normalized_items, key=lambda x: str(x))
+            except TypeError:
+                # If items aren't comparable, just return as-is
+                return normalized_items
+        else:
+            return data
+    
+    def normalize_and_compare(self):
+        """Normalize both YAML files (sort keys AND lists, consistent formatting) and compare."""
+        self.left_box.configure(state="normal")
+        self.right_box.configure(state="normal")
+        self.left_box.delete("1.0", "end")
+        self.right_box.delete("1.0", "end")
+
+        path1 = self.file1_path.get()
+        path2 = self.file2_path.get()
+
+        if not path1 or not path2:
+            error_msg = "Error: Please select two files to compare."
+            self.left_box.insert("end", error_msg, "error")
+            self.right_box.insert("end", error_msg, "error")
+            self.left_box.configure(state="disabled")
+            self.right_box.configure(state="disabled")
+            return
+
+        try:
+            with open(path1, 'r', encoding='utf-8') as f1:
+                data1 = yaml.safe_load(f1)
+            
+            with open(path2, 'r', encoding='utf-8') as f2:
+                data2 = yaml.safe_load(f2)
+
+            # Update labels
+            self.left_label.configure(text=f"File 1 (Normalized): {os.path.basename(path1)}")
+            self.right_label.configure(text=f"File 2 (Normalized): {os.path.basename(path2)}")
+
+            # Normalize: Sort BOTH dict keys AND list items recursively
+            normalized_data1 = self._normalize_data(data1)
+            normalized_data2 = self._normalize_data(data2)
+            
+            # Convert to YAML with consistent formatting
+            normalized1 = yaml.dump(normalized_data1, sort_keys=True, default_flow_style=False, allow_unicode=True)
+            normalized2 = yaml.dump(normalized_data2, sort_keys=True, default_flow_style=False, allow_unicode=True)
+
+            # Show normalized comparison
+            header = "=== NORMALIZED COMPARISON (sorted keys, consistent format) ===\n\n"
+            self.left_box.insert("end", header, "header")
+            self.right_box.insert("end", header, "header")
+
+            # Now do a line-by-line diff on normalized content
+            lines1 = normalized1.splitlines()
+            lines2 = normalized2.splitlines()
+            
+            matcher = difflib.SequenceMatcher(None, lines1, lines2)
+            
+            left_line_num = 1
+            right_line_num = 1
+            
+            for opcode, i1, i2, j1, j2 in matcher.get_opcodes():
+                if opcode == 'equal':
+                    for i in range(i1, i2):
+                        left_text = f"{left_line_num:4d} | {lines1[i]}\n"
+                        right_text = f"{right_line_num:4d} | {lines2[j1 + (i - i1)]}\n"
+                        self.left_box.insert("end", left_text, "normal")
+                        self.right_box.insert("end", right_text, "normal")
+                        left_line_num += 1
+                        right_line_num += 1
+                        
+                elif opcode == 'replace':
+                    left_lines = lines1[i1:i2]
+                    right_lines = lines2[j1:j2]
+                    max_count = max(len(left_lines), len(right_lines))
+                    
+                    for k in range(max_count):
+                        if k < len(left_lines) and k < len(right_lines):
+                            similarity = difflib.SequenceMatcher(None, left_lines[k], right_lines[k]).ratio()
+                            left_text = f"{left_line_num:4d} | {left_lines[k]}\n"
+                            right_text = f"{right_line_num:4d} | {right_lines[k]}\n"
+                            
+                            if similarity > 0.3:
+                                self.left_box.insert("end", left_text, "changed")
+                                self.right_box.insert("end", right_text, "changed")
+                            else:
+                                self.left_box.insert("end", left_text, "removed")
+                                self.right_box.insert("end", right_text, "added")
+                            left_line_num += 1
+                            right_line_num += 1
+                        elif k < len(left_lines):
+                            left_text = f"{left_line_num:4d} | {left_lines[k]}\n"
+                            self.left_box.insert("end", left_text, "removed")
+                            self.right_box.insert("end", "     | \n", "empty")
+                            left_line_num += 1
+                        else:
+                            self.left_box.insert("end", "     | \n", "empty")
+                            right_text = f"{right_line_num:4d} | {right_lines[k]}\n"
+                            self.right_box.insert("end", right_text, "added")
+                            right_line_num += 1
+                            
+                elif opcode == 'delete':
+                    for i in range(i1, i2):
+                        left_text = f"{left_line_num:4d} | {lines1[i]}\n"
+                        self.left_box.insert("end", left_text, "removed")
+                        self.right_box.insert("end", "     | \n", "empty")
+                        left_line_num += 1
+                        
+                elif opcode == 'insert':
+                    for j in range(j1, j2):
+                        self.left_box.insert("end", "     | \n", "empty")
+                        right_text = f"{right_line_num:4d} | {lines2[j]}\n"
+                        self.right_box.insert("end", right_text, "added")
+                        right_line_num += 1
+            
+            if normalized1 == normalized2:
+                summary = "\n✅ Files are IDENTICAL when normalized"
+                self.left_box.insert("end", summary, "added")
+                self.right_box.insert("end", summary, "added")
+
+        except Exception as e:
+            error_msg = f"Error normalizing files:\n{e}"
+            self.left_box.insert("end", error_msg, "error")
+            self.right_box.insert("end", error_msg, "error")
+        
+        self.left_box.configure(state="disabled")
+        self.right_box.configure(state="disabled")
 
 
 if __name__ == "__main__":
